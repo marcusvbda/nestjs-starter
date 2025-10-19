@@ -1,32 +1,48 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-import { Body, Controller, Get, Post, Request } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { Public } from './auth.guard';
+import { LoginDto } from './dto/login.dto';
+import { RefreshDto } from './dto/refresh.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {
-    //
-  }
+  constructor(private authService: AuthService) {}
 
-  @Public()
   @Post('login')
-  signIn(@Body() signInDto: Record<string, any>) {
-    return this.authService.signIn(signInDto.username, signInDto.password);
+  @ApiOperation({ summary: 'User login' })
+  async login(@Body() dto: LoginDto) {
+    const user = await this.authService.validateUser(dto.email, dto.password);
+    if (!user) throw new UnauthorizedException('Invalid credentials');
+    return this.authService.login(user);
   }
 
-  @Get('check')
-  checkLoggedUser(@Request() req) {
-    const user: any = req?.user;
-    return user;
-  }
-
-  @Public()
   @Post('refresh')
-  refresh(@Body() body: { refresh_token: string }) {
-    return this.authService.refresh(body.refresh_token);
+  @ApiOperation({ summary: 'Refresh access token' })
+  async refresh(@Body() dto: RefreshDto) {
+    return this.authService.refresh(dto.refreshToken);
+  }
+
+  @Post('logout')
+  @ApiOperation({ summary: 'User logout' })
+  async logout(@Body() dto: RefreshDto) {
+    const success = await this.authService.logout(dto.refreshToken);
+    if (!success) throw new UnauthorizedException('Invalid token');
+    return { message: 'Logged out successfully' };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('test')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Test protected route' })
+  test() {
+    return { message: 'You are logged' };
   }
 }

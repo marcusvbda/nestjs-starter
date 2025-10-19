@@ -1,26 +1,32 @@
-import { Injectable } from '@nestjs/common';
-
-// This should be a real class/interface representing a user entity
-export type User = any;
+import { Injectable, ConflictException } from '@nestjs/common';
+import { CreateUserDto } from './dto/create-user.dto';
+import * as bcrypt from 'bcryptjs';
+import { PrismaService } from 'prisma/prisma.service';
 
 @Injectable()
 export class UsersService {
-  private readonly users = [
-    {
-      userId: 1,
-      username: 'john',
-      password: 'changeme',
-    },
-    {
-      userId: 2,
-      username: 'maria',
-      password: 'guess',
-    },
-  ];
+  constructor(private prisma: PrismaService) {}
 
-  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
-  findOne(username: string): User | undefined {
-    const foundUser = this.users.find((user) => user.username === username);
-    return foundUser;
+  async create(createUserDto: CreateUserDto) {
+    const { email, password, name } = createUserDto;
+
+    const exists = await this.prisma.user.findUnique({ where: { email } });
+    if (exists) throw new ConflictException('Email already registered');
+
+    const hashed = await bcrypt.hash(password, 10);
+
+    const user = await this.prisma.user.create({
+      data: { email, password: hashed, name },
+      select: { id: true, email: true, name: true, createdAt: true },
+    });
+    return user;
+  }
+
+  async findByEmail(email: string) {
+    return this.prisma.user.findUnique({ where: { email } });
+  }
+
+  async findById(id: number) {
+    return this.prisma.user.findUnique({ where: { id } });
   }
 }

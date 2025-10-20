@@ -5,6 +5,7 @@ import {
   Post,
   UnauthorizedException,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -39,10 +40,10 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get('test')
+  @Get('logged-user')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Test protected route' })
-  test() {
-    return { message: 'You are logged' };
+  @ApiOperation({ summary: 'Get logged user information' })
+  getLoggedUser(@Request() req) {
+    return { ...req.auth.user };
   }
 }

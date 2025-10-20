@@ -41,6 +41,15 @@ export class JwtAuthGuard implements CanActivate {
 
     const refreshToken = await this.prisma.refreshToken.findUnique({
       where: { id: payload.refreshTokenId },
+      include: {
+        user: {
+          include: {
+            userRoles: {
+              include: { role: true },
+            },
+          },
+        },
+      },
     });
 
     if (
@@ -51,10 +60,12 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Token revoked or expired');
     }
 
-    req['user'] = {
-      id: payload.sub,
-      email: payload.email,
-      refreshTokenId: payload.refreshTokenId,
+    req['auth'] = {
+      user: {
+        ...refreshToken.user,
+        password: undefined,
+      },
+      refreshTokenId: refreshToken.id,
     };
 
     return true;

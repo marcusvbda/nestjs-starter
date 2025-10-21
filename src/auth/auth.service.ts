@@ -6,6 +6,7 @@ import { addDays } from 'date-fns';
 import { randomBytes } from 'crypto';
 import { User } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class AuthService {
@@ -105,5 +106,20 @@ export class AuthService {
     });
 
     return true;
+  }
+
+  @Cron(CronExpression.EVERY_HOUR)
+  async removeExpiredRefreshTokens(): Promise<void> {
+    const expiredTokens = await this.prisma.refreshToken.findMany({
+      where: { expiresAt: { lt: new Date() } },
+    });
+    if (expiredTokens.length > 0) {
+      await this.prisma.refreshToken.deleteMany({
+        where: {
+          id: { in: expiredTokens.map((token: { id: any }) => token.id) },
+        },
+      });
+      console.log('Cleaned up expired tokens:', expiredTokens.length);
+    }
   }
 }
